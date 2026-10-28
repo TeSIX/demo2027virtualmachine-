@@ -208,6 +208,11 @@ apply_network() {
   warn "Перезапуск сети может разорвать SSH! Выполняйте из консоли гипервизора."
   svc_enable_now network || run systemctl enable network
   run systemctl restart network
+  # ВАЖНО: перезапуск сети (etcnet) может сбросить net.ipv4.ip_forward в 0
+  # (подтверждено на BR-RTR: файл sysctl на месте, NAT работает, а forwarding=0 —
+  # и транзит BR-FW -> ISP мёртв). Поэтому sysctl применяем ПОВТОРНО после сети.
+  run sysctl --system
+  run sysctl net.ipv4.ip_forward || true
   run ip -br address
   run ip route
 }
@@ -230,6 +235,12 @@ net.ipv4.conf.$IF2.rp_filter=0
 net.ipv4.conf.$IF3.rp_filter=0
 EOF
   run sysctl --system
+  run sysctl -w net.ipv4.ip_forward=1
+  if [ "$DRY_RUN" != "1" ] && [ "$(sysctl -n net.ipv4.ip_forward 2>/dev/null)" != "1" ]; then
+    warn "ip_forward всё ещё не 1! Кто-то перекрывает 90-exam-router.conf. Проверьте:"
+    warn "  grep -R 'ip_forward' /etc/sysctl.conf /etc/sysctl.d/ /usr/lib/sysctl.d/ 2>/dev/null"
+    warn "  (последним при sysctl --system может читаться /etc/sysctl.conf со значением 0)"
+  fi
 }
 
 # NAT через nftables + systemd-unit exam-nat (файл перезаписывается целиком)
