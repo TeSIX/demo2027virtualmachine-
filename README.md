@@ -12,17 +12,14 @@
 
 ## Установка из GitHub
 
+> ⚠️ **Скрипты лежат НЕ в `main`, а в ветке `arena/e8a8a3cf-demo2027virtualmachine`** (PR #1).
+> В `main` сейчас только начальный коммит — установка «с main» не сработает.
+> Все команды ниже сразу берут ветку со скриптами.
+>
 > Команды выполняются **на каждой виртуальной машине** (Альт Сервер 11.1) из консоли
 > гипервизора, под root. Нужен доступ ВМ в Интернет (для `git clone` и `apt-get`).
 
-### Способ 1 — одной командой (после слияния PR #1 в `main`)
-
-```bash
-su -
-curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/main/install.sh | bash
-```
-
-### Способ 2 — вручную через git (работает уже сейчас, из ветки PR #1)
+### Способ 1 — через git (надёжный, работает сейчас)
 
 ```bash
 su -
@@ -30,13 +27,19 @@ apt-get update && apt-get install -y git ca-certificates
 git clone -b arena/e8a8a3cf-demo2027virtualmachine \
   https://github.com/TeSIX/demo2027virtualmachine-.git /opt/demo2027
 cd /opt/demo2027
+./install.sh        # выставит права, создаст config.env, подскажет дальнейшие шаги
 ```
 
-После слияния PR #1 ветку в команде можно не указывать — достаточно:
+### Способ 2 — одной командой (если на ВМ уже есть curl)
 
 ```bash
-git clone https://github.com/TeSIX/demo2027virtualmachine-.git /opt/demo2027
+su -
+curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash
 ```
+
+`install.sh` по умолчанию клонирует именно ветку `arena/e8a8a3cf-demo2027virtualmachine`.
+Если когда-нибудь PR #1 сольют в `main`, установка с `main` включается переменной:
+`REPO_BRANCH=main bash install.sh`.
 
 `install.sh` сам ставит git (если нет), клонирует/обновляет репозиторий в `/opt/demo2027`,
 выставляет права на исполнение и создаёт `config.env` из примера.

@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
 # Установка DEMO2027 из GitHub на Альт Сервер 11.1.
 #
-# Вариант 1 (одна строка, нужен Интернет и root):
-#   su - -c 'curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/main/install.sh | bash'
+# Скрипты лежат в ветке arena/e8a8a3cf-demo2027virtualmachine (PR #1), в main их пока нет!
+# Поэтому установщик по умолчанию берёт именно эту ветку.
 #
-# Вариант 2 (вручную):
+# Вариант 1 (надёжный, нужен Интернет и root):
 #   su -
 #   apt-get update && apt-get install -y git
-#   git clone https://github.com/TeSIX/demo2027virtualmachine-.git /opt/demo2027
-#   cd /opt/demo2027 && cp config.env.example config.env && nano config.env
-#   ./demo2027.sh hq-srv 1 --yes
+#   git clone -b arena/e8a8a3cf-demo2027virtualmachine \
+#     https://github.com/TeSIX/demo2027virtualmachine-.git /opt/demo2027
+#   cd /opt/demo2027 && ./install.sh
+#
+# Вариант 2 (одной строкой, если на ВМ уже есть curl):
+#   su - -c 'curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash'
+#
+# Если позже PR #1 сольют в main, установку с main включайте так:
+#   REPO_BRANCH=main bash install.sh
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/TeSIX/demo2027virtualmachine-.git}"
-REPO_BRANCH="${REPO_BRANCH:-main}"
+REPO_BRANCH="${REPO_BRANCH:-arena/e8a8a3cf-demo2027virtualmachine}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/demo2027}"
 
 [ "$(id -u)" = "0" ] || { echo "Нужен root: su -" >&2; exit 1; }
