@@ -8,17 +8,17 @@ if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
   exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-rtr 1 "$@"
 fi
 # --------------------------------------------------------------------------------
-# Модуль 1 · HQ-RTR: WAN 172.16.1.2/28, trunk ens37 без IP, VLAN 100/200/999,
+# Модуль 1 · HQ-RTR: WAN 172.16.1.2/28, trunk $IF2 без IP, VLAN 100/200/999,
 # forwarding+NAT, пользователь net_admin, GRE->BR-RTR, OSPF+MD5, DHCP для HQ-CLI.
 step "M1 · HQ-RTR: имя, время, адреса etcnet, VLAN"
 set_hostname_tz hq-rtr
 backup_dir /etc/net
-eth_iface ens33 static 172.16.1.2/28 "default via 172.16.1.1"
-eth_iface ens37 static
-vlan_iface vlan100 ens37 100 192.168.100.1/27
-vlan_iface vlan200 ens37 200 192.168.200.1/28
-vlan_iface vlan999 ens37 999 192.168.99.1/29
-write_resolv_iface ens33 "search ${DOMAIN}" "nameserver 77.88.8.8"
+eth_iface $IF1 static 172.16.1.2/28 "default via 172.16.1.1"
+eth_iface $IF2 static
+vlan_iface vlan100 $IF2 100 192.168.100.1/27
+vlan_iface vlan200 $IF2 200 192.168.200.1/28
+vlan_iface vlan999 $IF2 999 192.168.99.1/29
+write_resolv_iface $IF1 "search ${DOMAIN}" "nameserver 77.88.8.8"
 
 step "M1 · HQ-RTR: forwarding + NAT"
 enable_forwarding

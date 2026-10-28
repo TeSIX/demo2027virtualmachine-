@@ -23,11 +23,11 @@ run systemctl restart chronyd
 
 step "M2 · HQ-RTR: DNAT (exam.nft целиком: postrouting + prerouting)"
 tmp="$(mktemp)"
-cat > "$tmp" <<'EOF'
+cat > "$tmp" <<EOF
  chain prerouting {
   type nat hook prerouting priority dstnat; policy accept;
-  iifname "ens33" ip daddr 172.16.1.2 tcp dport 8080 dnat to 192.168.100.2:80
-  iifname "ens33" ip daddr 172.16.1.2 tcp dport 2027 dnat to 192.168.100.2:2027
+  iifname "$IF1" ip daddr 172.16.1.2 tcp dport 8080 dnat to 192.168.100.2:80
+  iifname "$IF1" ip daddr 172.16.1.2 tcp dport 2027 dnat to 192.168.100.2:2027
  }
 EOF
 write_nat "192.168.100.0/27, 192.168.200.0/28, 192.168.99.0/29" "$tmp"

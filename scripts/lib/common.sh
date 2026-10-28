@@ -14,6 +14,25 @@ step() { printf '\n%s===== %s =====%s\n' "$(_c '1;35')" "$*" "$(_c 0)"; }
 DRY_RUN="${DRY_RUN:-0}"
 ASSUME_YES="${ASSUME_YES:-0}"
 
+# ---------- имена интерфейсов ----------
+# Материал называет адаптеры $IF1/$IF2/$IF3, но гипервизор может дать другие
+# имена (напр. второй адаптер = ens34, altname enp2s2 — подтверждено на BR-RTR).
+# Поэтому: IF1/IF2/IF3 = 1-й/2-й/3-й ФИЗИЧЕСКИЙ интерфейс по порядку.
+# Вручную задаются в config.env: IFACE1=..., IFACE2=..., IFACE3=...
+_phys_ifaces() {
+  local d n
+  for d in /sys/class/net/*; do
+    n="${d##*/}"
+    case "$n" in ens*|enp*|eth*|enx*) [ -e "$d/device" ] && printf '%s\n' "$n" ;; esac
+  done | sort -V
+}
+mapfile -t _PHYS_IFACES < <(_phys_ifaces)
+IF1="${IFACE1:-${_PHYS_IFACES[0]:-}}"; [ -n "$IF1" ] || IF1="ens33"
+IF2="${IFACE2:-${_PHYS_IFACES[1]:-}}"; [ -n "$IF2" ] || IF2="ens37"
+IF3="${IFACE3:-${_PHYS_IFACES[2]:-}}"; [ -n "$IF3" ] || IF3="ens38"
+export IF1 IF2 IF3
+log "Интерфейсы: IF1=$IF1 IF2=$IF2 IF3=$IF3 (физических найдено: ${_PHYS_IFACES[*]:-нет})"
+
 # Выполнить команду (в --dry-run только показать)
 run() {
   if [ "$DRY_RUN" = "1" ]; then printf '  [dry-run] %s\n' "$*"; else log "+ $*"; "$@"; fi
@@ -100,7 +119,7 @@ svc() { # svc enable|restart|... unit
 svc_enable_now() { run systemctl enable --now "$1"; }
 
 # ---------- сеть etcnet ----------
-# eth_iface ens33 dhcp | eth_iface ens37 static 172.16.1.1/28 "default via ..."
+# eth_iface $IF1 dhcp | eth_iface $IF2 static 172.16.1.1/28 "default via ..."
 eth_iface() {
   local iface="$1" proto="$2" addr="${3:-}" route="${4:-}"
   local dir="/etc/net/ifaces/$iface"
@@ -139,7 +158,7 @@ EOF
   fi
 }
 
-vlan_iface() { # vlan_iface vlan100 ens37 100 192.168.100.1/27
+vlan_iface() { # vlan_iface vlan100 $IF2 100 192.168.100.1/27
   local name="$1" host="$2" vid="$3" addr="$4" dir="/etc/net/ifaces/$1"
   run mkdir -p "$dir"
   write_file "$dir/options" <<EOF
@@ -163,7 +182,7 @@ gre_iface() { # gre_iface 172.16.1.2 172.16.2.2 10.10.10.0/31
   write_file "$dir/options" <<EOF
 TYPE=iptun
 TUNTYPE=gre
-HOST=ens33
+HOST=$IF1
 TUNLOCAL=$local_ip
 TUNREMOTE=$remote_ip
 TUNOPTIONS='ttl 64'
@@ -179,7 +198,7 @@ EOF
   printf '%s\n' "$addr" | write_file "$dir/ipv4address"
 }
 
-write_resolv_iface() { # write_resolv_iface ens33 "nameserver ..."
+write_resolv_iface() { # write_resolv_iface $IF1 "nameserver ..."
   local iface="$1"; shift
   printf '%s\n' "$@" | write_file "/etc/net/ifaces/$iface/resolv.conf"
   printf '%s\n' "$@" | write_file "/etc/resolv.conf"
@@ -202,13 +221,13 @@ set_hostname_tz() { # set_hostname_tz hq-rtr
 }
 
 enable_forwarding() {
-  write_file /etc/sysctl.d/90-exam-router.conf <<'EOF'
+  write_file /etc/sysctl.d/90-exam-router.conf <<EOF
 net.ipv4.ip_forward=1
 net.ipv4.conf.all.rp_filter=0
 net.ipv4.conf.default.rp_filter=0
-net.ipv4.conf.ens33.rp_filter=0
-net.ipv4.conf.ens37.rp_filter=0
-net.ipv4.conf.ens38.rp_filter=0
+net.ipv4.conf.$IF1.rp_filter=0
+net.ipv4.conf.$IF2.rp_filter=0
+net.ipv4.conf.$IF3.rp_filter=0
 EOF
   run sysctl --system
 }
@@ -219,7 +238,7 @@ write_nat() { # write_nat "srcnets через запятую" [файл с prero
   apt_install nftables
   run mkdir -p /etc/nftables
   {
-    printf 'table ip exam_nat {\n chain postrouting {\n  type nat hook postrouting priority srcnat; policy accept;\n  ip saddr { %s } oifname "ens33" masquerade\n }\n' "$srcs"
+    printf 'table ip exam_nat {\n chain postrouting {\n  type nat hook postrouting priority srcnat; policy accept;\n  ip saddr { %s } oifname "%s" masquerade\n }\n' "$srcs" "$IF1"
     [ -n "$dnat_file" ] && cat "$dnat_file"
     printf '}\n'
   } | write_file /etc/nftables/exam.nft

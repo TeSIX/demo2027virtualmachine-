@@ -12,8 +12,8 @@ fi
 step "M1 · HQ-SRV: имя, время, адрес etcnet"
 set_hostname_tz hq-srv
 backup_dir /etc/net
-eth_iface ens33 static 192.168.100.2/27 "default via 192.168.100.1"
-write_resolv_iface ens33 "search ${DOMAIN}" "nameserver 77.88.8.8"
+eth_iface $IF1 static 192.168.100.2/27 "default via 192.168.100.1"
+write_resolv_iface $IF1 "search ${DOMAIN}" "nameserver 77.88.8.8"
 
 step "M1 · HQ-SRV: sshuser + sudo"
 apt_install sudo openssh-server
@@ -33,7 +33,7 @@ apt_install dnsmasq bind-utils
 run ss -lntup | grep ':53 ' || true
 backup_file /etc/dnsmasq.conf
 write_file /etc/dnsmasq.conf <<EOF
-interface=ens33
+interface=$IF1
 listen-address=127.0.0.1,192.168.100.2
 bind-interfaces
 no-resolv
@@ -53,7 +53,7 @@ EOF
 [ "$DRY_RUN" = "1" ] || { dnsmasq --test; }
 svc_enable_now dnsmasq
 [ "$DRY_RUN" = "1" ] || systemctl restart dnsmasq   # перечитать конфиг при повторном запуске
-write_resolv_iface ens33 "search ${DOMAIN}" "nameserver 127.0.0.1"
+write_resolv_iface $IF1 "search ${DOMAIN}" "nameserver 127.0.0.1"
 
 run dig @192.168.100.2 "hq-srv.${DOMAIN}" A +short || true
 run dig @192.168.100.2 -x 192.168.100.2 +short || true
