@@ -132,7 +132,9 @@ CONFIG_IPV6=no
 CONFIG_WIRELESS=no
 EOF
     [ -n "$addr" ]  && printf '%s\n' "$addr"  | write_file "$dir/ipv4address"
-    [ -n "$route" ] && printf '%s\n' "$route" | write_file "$dir/ipv4route"
+    if [ -n "$route" ]; then printf '%s\n' "$route" | write_file "$dir/ipv4route"
+    elif [ "$DRY_RUN" != "1" ]; then : > "$dir/ipv4route"   # убрать СТАРЫЙ default route (материал, п.1)
+    else printf '  [dry-run] очистить %s/ipv4route (шлюз не задан)\n' "$dir"; fi
     if [ -z "$addr" ] && [ "$DRY_RUN" != "1" ]; then : > "$dir/ipv4address"; fi
   fi
 }
@@ -236,6 +238,9 @@ WantedBy=multi-user.target
 EOF
   run systemctl daemon-reload
   svc_enable_now exam-nat
+  # enable --now НЕ перезапускает уже работающую службу: без restart модуль 2 (DNAT)
+  # не применился бы поверх NAT модуля 1, а повторный запуск дублировал бы правила.
+  run systemctl restart exam-nat
   run nft list table ip exam_nat
 }
 

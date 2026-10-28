@@ -6,6 +6,9 @@ apt_install openssl
 run install -d -m 700 /root/exam-pki
 if [ "$DRY_RUN" = "1" ]; then
   printf '  [dry-run] openssl req -x509 ... -days 30 (SAN web/docker) в /root/exam-pki\n'
+elif [ -f /root/exam-pki/sites.crt ] && [ -f /root/exam-pki/sites.key ]; then
+  # Повторная генерация создала бы НОВЫЙ CA: ISP и HQ-CLI доверяли бы старому, HTTPS «сломался» бы.
+  ok "Сертификат уже есть в /root/exam-pki — не перегенерирую. Свежий (30 дней) нужен — удалите sites.* вручную"
 else
 (
   cd /root/exam-pki

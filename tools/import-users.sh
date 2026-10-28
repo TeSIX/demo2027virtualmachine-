@@ -14,7 +14,7 @@ DOMAIN_DC="DC=au-team,DC=irpo"
 [ -f "$CSV" ] || { echo "Нет файла $CSV" >&2; exit 1; }
 command -v samba-tool >/dev/null || { echo "samba-tool не найден — запускайте на BR-SRV (Samba DC)" >&2; exit 1; }
 
-header="$(head -n1 "$CSV" | tr -d '\r')"
+header="$(head -n1 "$CSV" | sed -e "1s/^\xEF\xBB\xBF//" -e 's/\r$//' -e 's/[[:space:]]*,[[:space:]]*/,/g' -e 's/[[:space:]]*;[[:space:]]*/;/g')"
 case "$header" in *";"*) DELIM=';' ;; *) DELIM=',' ;; esac
 echo "Файл: $CSV · разделитель: '$DELIM' · заголовок: $header"
 echo "$header" | tr "$DELIM" '\n' | grep -qi '^login$' \
@@ -31,28 +31,42 @@ ensure_ou() { # ensure_ou OfficeHQ/Отдел -> создаёт цепочку, 
   IFS='/' read -ra parts <<< "$1"
   for part in "${parts[@]}"; do
     dn="OU=${part}${rel:+,$rel},$DOMAIN_DC"
+    # ВАЖНО: stdout samba-tool нельзя выпускать наружу функции — он попадёт в $(ensure_ou)
+    # и испортит --userou ("Created OU ...OU=..."). Всё диагностическое — в stderr.
     if samba-tool ou list 2>/dev/null | grep -qx "$dn"; then echo "OU есть: $dn" >&2
-    else samba-tool ou create "$dn"; fi
+    else samba-tool ou create "$dn" >&2; fi
     rel="OU=${part}${rel:+,$rel}"
   done
   printf '%s' "$rel"
 }
 
-tail -n +2 "$CSV" | while IFS="$DELIM" read -r -a F; do
+CREATED=0; FAILED=0
+# || [ ${#F[@]} -gt 0 ] — иначе последняя строка CSV без завершающего \n теряется
+while IFS="$DELIM" read -r -a F || [ "${#F[@]}" -gt 0 ]; do
   get() { local n="${!1:-}"; [ -n "$n" ] && printf '%s' "${F[$((n-1))]:-}" | tr -d '\r' || true; }
   login="$(get C_LOGIN)"; pass="$(get C_PASS)"; gn="$(get C_GN)"; sn="$(get C_SN)"; ou="$(get C_OU)"
   [ -n "$login" ] || continue
   [ -n "$pass" ] || { echo "ПРОПУСК $login: пустой пароль"; continue; }
-  userou="$(ensure_ou "${ou:-Users}")"
+  if [ -n "$ou" ]; then
+    userou="$(ensure_ou "$ou")"
+    args=(user create "$login" "$pass" --userou="$userou")
+    where="$userou,$DOMAIN_DC"
+  else
+    # OU не указана — НЕ создаём фиктивную OU=Users, пользователь попадёт в CN=Users
+    args=(user create "$login" "$pass")
+    where="CN=Users,$DOMAIN_DC"
+  fi
   if samba-tool user show "$login" >/dev/null 2>&1; then
     echo "ПРОПУСК $login: уже существует"
   else
-    args=(user create "$login" "$pass" --userou="$userou")
     [ -n "$gn" ] && args+=(--given-name="$gn")
     [ -n "$sn" ] && args+=(--surname="$sn")
-    samba-tool "${args[@]}" && echo "СОЗДАН: $login ($userou,$DOMAIN_DC)"
+    if samba-tool "${args[@]}"; then echo "СОЗДАН: $login ($where)"; CREATED=$((CREATED+1))
+    else echo "ОШИБКА создания: $login" >&2; FAILED=$((FAILED+1)); fi
   fi
-done
+done < <(tail -n +2 "$CSV")
+echo "Итого: создано=$CREATED, ошибок=$FAILED"
+[ "$FAILED" = "0" ] || exit 1
 echo "--- Проверка ---"
 samba-tool ou list
 samba-tool user list

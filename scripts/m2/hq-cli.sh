@@ -33,8 +33,9 @@ elif [ "$DRY_RUN" = "1" ]; then
   printf '  [dry-run] system-auth write ad %s hq-cli AU-TEAM administrator ***\n' "$DOMAIN"
 else
   system-auth write ad "$DOMAIN" hq-cli AU-TEAM administrator "$DOMAIN_ADMIN_PASSWORD"
-  warn "HQ-CLI уйдёт в перезагрузку для применения домена (как в материале)"
-  confirm "Перезагрузить HQ-CLI сейчас?" && reboot || warn "Перезагрузите вручную: reboot"
+  # НЕ перезагружаем из скрипта: с --yes confirm() вернул бы согласие автоматически,
+  # ВМ ушла бы в reboot посреди скрипта, а шаги ниже (sudoers, NFS, браузер) не выполнились.
+  warn "Домен применён. ПЕРЕЗАГРУЗИТЕ HQ-CLI вручную (reboot) и запустите модуль 2 повторно для оставшихся шагов."
 fi
 # Содержимое sudoers для доменной группы (применится, когда группа видна через SSSD)
 printf '%%hq@%s ALL=(root) /usr/bin/cat, /usr/bin/grep, /usr/bin/id\n' "$DOMAIN" | write_file /etc/sudoers.d/hq 440

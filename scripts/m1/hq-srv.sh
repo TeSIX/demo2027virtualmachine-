@@ -14,6 +14,11 @@ sudo_nopasswd sshuser
 step "M1 · HQ-SRV: SSH порт 2027"
 configure_sshd_exam
 
+step "M1 · HQ-SRV: применяем сеть ДО запуска DNS"
+# Иначе dnsmasq (bind-interfaces, listen-address=192.168.100.2) на первом запуске
+# не найдёт свой адрес и упадёт, оборвав скрипт до apply_network.
+apply_network
+
 step "M1 · HQ-SRV: DNS (dnsmasq)"
 apt_install dnsmasq bind-utils
 run ss -lntup | grep ':53 ' || true
@@ -38,9 +43,9 @@ host-record=web.${DOMAIN},172.16.2.1
 EOF
 [ "$DRY_RUN" = "1" ] || { dnsmasq --test; }
 svc_enable_now dnsmasq
+[ "$DRY_RUN" = "1" ] || systemctl restart dnsmasq   # перечитать конфиг при повторном запуске
 write_resolv_iface ens33 "search ${DOMAIN}" "nameserver 127.0.0.1"
 
-apply_network
 run dig @192.168.100.2 "hq-srv.${DOMAIN}" A +short || true
 run dig @192.168.100.2 -x 192.168.100.2 +short || true
 finish "HQ-SRV (модуль 1)"

@@ -76,7 +76,14 @@ EOF
 if [ "$DRY_RUN" != "1" ]; then
   grep -Rlq '^[[:space:]]*Listen 443' /etc/httpd2/conf/ 2>/dev/null || warn "Проверьте Listen 443 в /etc/httpd2/conf после включения mod_ssl"
   a2ensite reverse 2>/dev/null || a2ensite reverse.conf 2>/dev/null || warn "a2ensite reverse не удался"
-  (apachectl -t 2>/dev/null || apache2ctl -t) && systemctl enable --now httpd2 && systemctl reload httpd2
+  # Проверяем конфиг ДО применения: иначе битый vhost (напр., без сертификата) остался бы
+  # включённым и Apache не поднялся бы после перезагрузки, хотя сейчас работает на старом конфиге.
+  if apachectl -t 2>/dev/null || apache2ctl -t; then
+    systemctl enable --now httpd2 && systemctl reload httpd2
+  else
+    a2dissite reverse 2>/dev/null || a2dissite reverse.conf 2>/dev/null || true
+    die "apachectl -t не прошёл — сайт reverse отключён обратно. Частая причина: нет /etc/httpd2/ssl/sites.* (сначала m3 на hq-srv)"
+  fi
   ss -lntp | grep ':443' || warn "443 не слушается"
   curl -s -o /dev/null -w 'web без пароля: %{http_code} (ожидается 401)\n' -H "Host: web.${DOMAIN}" http://172.16.2.1/ || true
   warn "Итоговая HTTPS-проверка — с HQ-CLI после импорта CA: curl -u WEB https://web.${DOMAIN}/"

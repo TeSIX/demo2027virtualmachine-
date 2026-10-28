@@ -48,6 +48,11 @@ write memory
 exit
 EOF
 
+step "M1 · HQ-RTR: применяем сеть ДО запуска DHCP"
+# dnsmasq с bind-interfaces на vlan200 упадёт, если VLAN ещё не поднят (первый запуск),
+# а падение enable --now под set -e оборвало бы скрипт до apply_network.
+apply_network
+
 step "M1 · HQ-RTR: DHCP (dnsmasq, только VLAN200)"
 apt_install dnsmasq
 backup_file /etc/dnsmasq.conf
@@ -64,7 +69,7 @@ dhcp-host=${HQ_CLI_MAC:-52:54:00:12:34:56},192.168.200.2,hq-cli,infinite
 EOF
 [ "$DRY_RUN" = "1" ] || dnsmasq --test
 svc_enable_now dnsmasq
+[ "$DRY_RUN" = "1" ] || systemctl restart dnsmasq   # enable --now не перечитает конфиг у работающей службы
 
-apply_network
 run ping -c 3 10.10.10.1 || warn "GRE/OSPF ещё могут сходиться — проверьте: vtysh -c 'show ip ospf neighbor'"
 finish "HQ-RTR (модуль 1)"

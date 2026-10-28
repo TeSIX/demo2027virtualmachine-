@@ -33,7 +33,9 @@ else
     partprobe /dev/md0; udevadm settle
     mkfs.ext4 -L RAID /dev/md0p1
     mkdir -p /raid
-    mdadm --detail --scan > /etc/mdadm.conf
+    backup_file /etc/mdadm.conf
+    # НЕ `> /etc/mdadm.conf`: перезапись стирала существующие ARRAY/DEVICE (материал: внести строку, сохранив прочее)
+    mdadm --detail --scan | while read -r line; do ensure_line /etc/mdadm.conf "$line"; done
     uuid="$(blkid -s UUID -o value /dev/md0p1)"
     grep -q "$uuid" /etc/fstab || printf 'UUID=%s /raid ext4 defaults 0 2\n' "$uuid" >> /etc/fstab
     systemctl daemon-reload; mount /raid; findmnt /raid

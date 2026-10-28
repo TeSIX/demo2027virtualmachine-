@@ -25,7 +25,8 @@ if [ "$DRY_RUN" = "1" ]; then
   printf '  [dry-run] samba-tool group add hq; создать hquser1..hquser5 и добавить в hq\n'
 else
   samba-tool domain passwordsettings set --min-pwd-length=8 --account-lockout-threshold=5
-  samba-tool group show hq >/dev/null 2>&1 || samba-tool group add hq
+  # Не `group show`: если подкоманды нет в этой версии samba-tool, || создал бы дубликат и оборвал скрипт
+  samba-tool group list 2>/dev/null | grep -qx hq || samba-tool group add hq
   for i in 1 2 3 4 5; do
     samba-tool user show "hquser$i" >/dev/null 2>&1 || samba-tool user create "hquser$i" "${DOMAIN_USER_PASSWORD:-P@ssw0rd}"
     samba-tool group addmembers hq "hquser$i" || true
@@ -87,7 +88,12 @@ if [ "$DRY_RUN" != "1" ]; then
     docker image ls
   else warn "Каталог /mnt/additional/docker не найден — загрузите образы вручную: docker load -i <архив>"; fi
   found="$(find /mnt/additional -maxdepth 3 -name 'compose.y*ml' -print -quit 2>/dev/null)"
-  if [ -n "$found" ]; then cp -a "$(dirname "$found")/." /opt/testapp/; ok "compose скопирован из $found в /opt/testapp"
+  if [ -n "$found" ]; then
+    # Копируем compose и соседние .env, а НЕ весь каталог ISO (иначе в /opt/testapp
+    # попадут и tar-образы docker/, и чужие файлы, если compose лежит в корне ISO)
+    cp -a "$found" /opt/testapp/
+    for envf in "$(dirname "$found")"/.env*; do [ -f "$envf" ] && cp -a "$envf" /opt/testapp/; done
+    ok "compose скопирован из $found в /opt/testapp (проверьте связанные файлы: конфиги/данные из каталога compose на ISO)"
   else warn "compose.yaml на ISO не найден — скопируйте выданный compose в /opt/testapp вручную"; fi
   if [ -f /opt/testapp/compose.yaml ] || [ -f /opt/testapp/compose.yml ]; then
     (cd /opt/testapp && (docker compose config && docker compose up -d && docker compose ps) \
