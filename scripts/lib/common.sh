@@ -206,12 +206,27 @@ write_resolv_iface() { # write_resolv_iface $IF1 "nameserver ..."
 
 apply_network() {
   warn "Перезапуск сети может разорвать SSH! Выполняйте из консоли гипервизора."
+  # Остатки старых запусков: конфиги интерфейсов, которых на ВМ нет (напр. ens37,
+  # когда адаптер на самом деле ens34). etcnet их просто проигнорирует, но чтобы
+  # не путаться при диагностике — предупреждаем (сами НЕ удаляем).
+  if [ "$DRY_RUN" != "1" ]; then
+    local _d _n
+    for _d in /etc/net/ifaces/ens* /etc/net/ifaces/enp* /etc/net/ifaces/eth*; do
+      [ -d "$_d" ] || continue
+      _n="${_d##*/}"
+      [ -e "/sys/class/net/$_n" ] || warn "Остался конфиг несуществующего интерфейса $_n ($_d) — если адаптера правда нет, удалите: rm -rf $_d"
+    done
+  fi
   svc_enable_now network || run systemctl enable network
   run systemctl restart network
   # ВАЖНО: перезапуск сети (etcnet) может сбросить net.ipv4.ip_forward в 0
   # (подтверждено на BR-RTR: файл sysctl на месте, NAT работает, а forwarding=0 —
-  # и транзит BR-FW -> ISP мёртв). Поэтому sysctl применяем ПОВТОРНО после сети.
-  run sysctl --system
+  # и транзит BR-FW -> ISP мёртв). Поэтому после сети: повторно применяем sysctl
+  # и, если это маршрутизатор (есть наш 90-exam-router.conf), форсим forwarding.
+  run sysctl --system || warn "sysctl --system вернул ошибку — см. вывод выше"
+  if [ -f /etc/sysctl.d/90-exam-router.conf ]; then
+    run sysctl -w net.ipv4.ip_forward=1
+  fi
   run sysctl net.ipv4.ip_forward || true
   run ip -br address
   run ip route
@@ -226,20 +241,30 @@ set_hostname_tz() { # set_hostname_tz hq-rtr
 }
 
 enable_forwarding() {
-  write_file /etc/sysctl.d/90-exam-router.conf <<EOF
-net.ipv4.ip_forward=1
-net.ipv4.conf.all.rp_filter=0
-net.ipv4.conf.default.rp_filter=0
-net.ipv4.conf.$IF1.rp_filter=0
-net.ipv4.conf.$IF2.rp_filter=0
-net.ipv4.conf.$IF3.rp_filter=0
-EOF
-  run sysctl --system
+  # rp_filter пишем только для РЕАЛЬНО существующих интерфейсов: строка для
+  # отсутствующего (на ВМ с двумя адаптерами третьего нет и в fallback-виде)
+  # заставляет sysctl ругаться и может оборвать применение остальных значений.
+  {
+    printf 'net.ipv4.ip_forward=1\n'
+    printf 'net.ipv4.conf.all.rp_filter=0\n'
+    printf 'net.ipv4.conf.default.rp_filter=0\n'
+    local _n
+    for _n in "$IF1" "$IF2" "$IF3"; do
+      if [ -e "/sys/class/net/$_n" ]; then printf 'net.ipv4.conf.%s.rp_filter=0\n' "$_n"; fi
+    done
+  } | write_file /etc/sysctl.d/90-exam-router.conf
+  # Постоянство после перезагрузки: /etc/sysctl.conf при sysctl --system может
+  # читаться ПОСЛЕ sysctl.d и перекрывать наш файл значением 0 (живой случай
+  # на BR-RTR). Если там есть активная строка ip_forward — приводим её к 1.
+  if [ -f /etc/sysctl.conf ] && grep -qE '^[[:space:]]*net\.ipv4\.ip_forward' /etc/sysctl.conf; then
+    set_kv /etc/sysctl.conf 'net.ipv4.ip_forward' '1' '='
+  fi
+  run sysctl --system || warn "sysctl --system вернул ошибку — см. вывод выше"
   run sysctl -w net.ipv4.ip_forward=1
   if [ "$DRY_RUN" != "1" ] && [ "$(sysctl -n net.ipv4.ip_forward 2>/dev/null)" != "1" ]; then
-    warn "ip_forward всё ещё не 1! Кто-то перекрывает 90-exam-router.conf. Проверьте:"
+    warn "ip_forward всё ещё не 1! Кто-то перекрывает наши конфиги. Диагностика:"
     warn "  grep -R 'ip_forward' /etc/sysctl.conf /etc/sysctl.d/ /usr/lib/sysctl.d/ 2>/dev/null"
-    warn "  (последним при sysctl --system может читаться /etc/sysctl.conf со значением 0)"
+    warn "  systemctl restart network; sysctl net.ipv4.ip_forward   # не сбрасывает ли сеть"
   fi
 }
 
@@ -333,6 +358,16 @@ frr_ospf() {
   else printf 'ospfd=yes\n' >> /etc/frr/daemons; fi
   grep '^ospfd=' /etc/frr/daemons
   systemctl enable --now frr; systemctl restart frr
+  # Старый frr.conf (write memory от прежних запусков) мог сохранить блоки
+  # 'interface ens37' для интерфейса, которого на ВМ нет (переименован в ens34).
+  # FRR такой блок не применяет, но он шумит в конфиге — предупреждаем.
+  if [ -f /etc/frr/frr.conf ]; then
+    local _stale
+    for _stale in $(awk '/^interface /{print $2}' /etc/frr/frr.conf); do
+      case "$_stale" in lo|gre*|vlan*|br*) continue ;; esac
+      [ -e "/sys/class/net/$_stale" ] || warn "В /etc/frr/frr.conf остался блок интерфейса $_stale, которого нет на ВМ — при необходимости удалите его через vtysh: 'no interface $_stale'"
+    done
+  fi
   vtysh
   vtysh -c 'show ip ospf neighbor' || true
 }
