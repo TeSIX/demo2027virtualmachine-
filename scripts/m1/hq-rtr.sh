@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m1/hq-rtr.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-rtr 1 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 1 · HQ-RTR: WAN 172.16.1.2/28, trunk ens37 без IP, VLAN 100/200/999,
 # forwarding+NAT, пользователь net_admin, GRE->BR-RTR, OSPF+MD5, DHCP для HQ-CLI.
 step "M1 · HQ-RTR: имя, время, адреса etcnet, VLAN"

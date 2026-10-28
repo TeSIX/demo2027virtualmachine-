@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m3/hq-srv.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-srv 3 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 3 · HQ-SRV: сертификат 30 дней (SAN web+docker) для ISP, atop 420 c,
 # CUPS + виртуальный PDF-принтер, fail2ban SSH (3/60с), бэкап restic в репозиторий irpo на HQ-CLI.
 step "M3 · HQ-SRV: самоподписанный сертификат (30 дней)"

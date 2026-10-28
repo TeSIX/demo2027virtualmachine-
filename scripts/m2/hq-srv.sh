@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m2/hq-srv.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-srv 2 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 2 · HQ-SRV: RAID0 из двух доп. дисков -> раздел ext4 /raid, NFS для 192.168.200.0/28,
 # Apache+PHP+MariaDB (webdb). RAID создаётся ТОЛЬКО при RAID_CONFIRM=YES в config.env!
 step "M2 · HQ-SRV: chrony <- ISP 172.16.1.1"

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m3/isp.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" isp 3 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 3 · ISP: reverse proxy Apache (web->HQ-SRV, docker->BR-SRV), Basic Auth WEB,
 # HTTPS с сертификатом с HQ-SRV (30 дней, SAN web+docker). Требуются DNAT модуля 2.
 step "M3 · ISP: Apache reverse proxy"

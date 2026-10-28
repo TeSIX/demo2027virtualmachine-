@@ -40,6 +40,7 @@ EOF
 [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ $# -lt 2 ] && { usage; exit 0; }
 
 ROLE="$1"; MODULE="$2"; shift 2
+export DEMO2027_DISPATCHED=1   # маркер для фрагментов scripts/m*/: «мы запущены через диспетчер»
 export ASSUME_YES=0 DRY_RUN=0
 for a in "$@"; do
   case "$a" in

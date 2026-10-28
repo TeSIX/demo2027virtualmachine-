@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m3/hq-cli.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-cli 3 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 3 · HQ-CLI: доверие CA (web/docker без предупреждений), CUPS-клиент HQ-PDF по умолчанию,
 # пользователь irpoadmin + каталог /backup/irpo для бэкапов HQ-SRV.
 step "M3 · HQ-CLI: доверие сертификату HQ-SRV"

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m1/hq-srv.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-srv 1 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 1 · HQ-SRV: 192.168.100.2/27, sshuser(UID 2027)+sudo, SSH 2027, DNS dnsmasq (A/PTR+forward).
 step "M1 · HQ-SRV: имя, время, адрес etcnet"
 set_hostname_tz hq-srv

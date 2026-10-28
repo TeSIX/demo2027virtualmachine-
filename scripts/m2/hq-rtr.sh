@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m2/hq-rtr.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-rtr 2 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 2 · HQ-RTR: chrony-клиент + DNAT 8080->HQ-SRV:80, 2027->HQ-SRV:2027 (в exam.nft).
 step "M2 · HQ-RTR: chrony <- ISP 172.16.1.1"
 apt_install chrony python3

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m2/hq-cli.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-cli 2 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 2 · HQ-CLI: время от ISP(HQ)=172.16.1.1, sshuser для Ansible, ввод в домен AU-TEAM.IRPO,
 # sudo только cat/grep/id для группы hq, NFS-клиент (автомонтирование /mnt/nfs), Яндекс Браузер.
 step "M2 · HQ-CLI: chrony <- ISP 172.16.1.1"

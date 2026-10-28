@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- Автозапуск через диспетчер -------------------------------------------------
+# Этот файл — ФРАГМЕНТ: все функции (step, eth_iface, write_file, apt_install…)
+# определены в scripts/lib/common.sh и подключаются только из demo2027.sh.
+# При прямом запуске (bash scripts/m1/hq-sw.sh) сами перенаправляем в диспетчер:
+# иначе будет «command not found» на каждой функции.
+if [ -z "${DEMO2027_DISPATCHED:-}" ]; then
+  exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/demo2027.sh" hq-sw 1 "$@"
+fi
+# --------------------------------------------------------------------------------
 # Модуль 1 · HQ-SW (вариант: отдельная Linux-ВМ): мост br0 с VLAN-filtering.
 # ens33=trunk к HQ-RTR (100/200/999), ens37=access VLAN100 к HQ-SRV,
 # ens38=access VLAN200 к HQ-CLI, управление br0.999 = 192.168.99.2/29.
