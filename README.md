@@ -34,8 +34,13 @@ cd /opt/demo2027
 
 ```bash
 su -
-curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash
+curl -f -s -S -L https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash
 ```
+
+> ⚠️ Не путайте `-f` и `-F`: нужна **маленькая** `f` (`--fail`). Команда вида
+> `curl -FsSL …` даст ошибку `Warning: Illegally formatted input field!` /
+> `curl: option -FsSL: is badly used here` — это значит, что введена большая `F`
+> (`--form`, загрузка файлов), а не то, что ветка или адрес недоступны.
 
 `install.sh` по умолчанию клонирует именно ветку `arena/e8a8a3cf-demo2027virtualmachine`.
 Если когда-нибудь PR #1 сольют в `main`, установка с `main` включается переменной:

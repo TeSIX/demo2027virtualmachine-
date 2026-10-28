@@ -12,7 +12,8 @@
 #   cd /opt/demo2027 && ./install.sh
 #
 # Вариант 2 (одной строкой, если на ВМ уже есть curl):
-#   su - -c 'curl -fsSL https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash'
+#   su - -c 'curl -f -s -S -L https://raw.githubusercontent.com/TeSIX/demo2027virtualmachine-/arena/e8a8a3cf-demo2027virtualmachine/install.sh | bash'
+#   (флаг — маленькая -f, не -F: с большой F curl выдаст 'option -FsSL: is badly used here')
 #
 # Если позже PR #1 сольют в main, установку с main включайте так:
 #   REPO_BRANCH=main bash install.sh
